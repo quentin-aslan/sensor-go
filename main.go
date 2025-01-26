@@ -1,0 +1,61 @@
+package main
+
+import (
+	"encoding/json"
+	"fmt"
+	"log"
+	"net/http"
+	"time"
+)
+
+type Data struct {
+	Measurement string  `json:"measurement"`
+	Host        string  `json:"host"`
+	Value       float64 `json:"value"`
+	TypeValue   string  `json:"typeValue"`
+}
+
+func main() {
+	http.HandleFunc("/", func(w http.ResponseWriter, r *http.Request) {
+		if r.Method != http.MethodPost {
+			http.Error(w, "Only POST method is supported", http.StatusMethodNotAllowed)
+			return
+		}
+
+		var data Data
+		if err := json.NewDecoder(r.Body).Decode(&data); err != nil {
+			http.Error(w, "Invalid JSON", http.StatusBadRequest)
+			log.Printf("Error decoding JSON: %v", err)
+			return
+		}
+		defer r.Body.Close()
+
+		// Log the received data
+		log.Printf("Received data: %+v\n", data)
+
+		// Réponse au client
+		w.WriteHeader(http.StatusOK)
+		w.Header().Set("Content-Type", "text/plain")
+		_, res := w.Write([]byte("Data received successfully"))
+		if res != nil {
+			log.Printf("Error writing response: %v", res)
+			return
+		}
+		fmt.Println(w, "Data received successfully")
+	})
+
+	// Lancer le serveur HTTP
+	port := ":8080"
+	server := &http.Server{
+		Addr:           port,
+		ReadTimeout:    10 * time.Second,
+		WriteTimeout:   10 * time.Second,
+		IdleTimeout:    60 * time.Second,
+		MaxHeaderBytes: 1 << 20,
+	}
+
+	log.Printf("Server started on port %s\n", port)
+	if err := server.ListenAndServe(); err != nil {
+		log.Fatalf("Error starting server: %v", err)
+	}
+}
