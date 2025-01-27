@@ -9,10 +9,11 @@ import (
 )
 
 type Data struct {
-	Measurement string `json:"measurement"`
-	Host        string `json:"host"`
-	Value       string `json:"value"`
-	TypeValue   string `json:"typeValue"`
+	Measurement string    `json:"measurement"`
+	Host        string    `json:"host"`
+	Value       string    `json:"value"`
+	TypeValue   string    `json:"typeValue"`
+	CreatedAt   time.Time `json:"createdAt"`
 }
 
 var allData []Data
@@ -42,6 +43,8 @@ func main() {
 			return
 		}
 		defer r.Body.Close()
+
+		data.CreatedAt = time.Now()
 
 		// Log the received data
 		log.Printf("Received data: %+v\n", data)
