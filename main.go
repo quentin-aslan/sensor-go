@@ -9,14 +9,27 @@ import (
 )
 
 type Data struct {
-	Measurement string  `json:"measurement"`
-	Host        string  `json:"host"`
-	Value       float64 `json:"value"`
-	TypeValue   string  `json:"typeValue"`
+	Measurement string `json:"measurement"`
+	Host        string `json:"host"`
+	Value       string `json:"value"`
+	TypeValue   string `json:"typeValue"`
 }
 
+var allData []Data
+
 func main() {
+
+	http.Handle("/metrics", http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
+		if err := json.NewEncoder(w).Encode(allData); err != nil {
+			http.Error(w, "Error encoding JSON", http.StatusInternalServerError)
+			log.Printf("Error encoding JSON: %v", err)
+			return
+		}
+	}))
+
 	http.HandleFunc("/", func(w http.ResponseWriter, r *http.Request) {
+
 		if r.Method != http.MethodPost {
 			http.Error(w, "Only POST method is supported", http.StatusMethodNotAllowed)
 			return
@@ -32,6 +45,7 @@ func main() {
 
 		// Log the received data
 		log.Printf("Received data: %+v\n", data)
+		allData = append(allData, data)
 
 		// Réponse au client
 		w.WriteHeader(http.StatusOK)
