@@ -1,0 +1,35 @@
+name: Deploy to VPS
+on:
+  push:
+    branches:
+      - main
+jobs:
+  deploy-fotion:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Build app
+        run: go build -o sensor-go main.go
+
+      - name: SCP to VPS
+        uses: appleboy/scp-action@master
+        with:
+          host: ${{ secrets.IP_ADDRESS }}
+          username: "root"
+          key: ${{ secrets.SSH_KEY }}
+          port: 22
+          source: "sensor-go"
+          target: "/home/debian/dev/sensor-go"
+
+      - name: Restart sensor-go systemd service
+        uses: appleboy/ssh-action@master
+        with:
+          host: ${{ secrets.IP_ADDRESS }}
+          username: "root"
+          key: ${{ secrets.SSH_KEY }}
+          port: 22
+          script:
+            sudo systemctl stop sensor-go &&
+            sudo systemctl restart sensor-go &&
+            sudo systemctl status sensor-go
