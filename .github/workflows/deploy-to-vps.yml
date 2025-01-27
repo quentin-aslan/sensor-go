@@ -4,7 +4,7 @@ on:
     branches:
       - main
 jobs:
-  deploy-fotion:
+  deploy-sensor-go:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -16,8 +16,8 @@ jobs:
         uses: appleboy/scp-action@master
         with:
           host: ${{ secrets.IP_ADDRESS }}
-          username: "root"
-          key: ${{ secrets.SSH_KEY }}
+          username: "debian"
+          key: ${{ secrets.SSH_PRIVATE_KEY }}
           port: 22
           source: "sensor-go"
           target: "/home/debian/dev/sensor-go"
