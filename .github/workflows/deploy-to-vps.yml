@@ -27,7 +27,7 @@ jobs:
         with:
           host: ${{ secrets.IP_ADDRESS }}
           username: "debian"
-          key: ${{ secrets.SSH_KEY }}
+          key: ${{ secrets.SSH_PRIVATE_KEY }}
           port: 22
           script:
             sudo systemctl stop sensor-go &&
