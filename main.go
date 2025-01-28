@@ -5,7 +5,11 @@ import (
 	"fmt"
 	"log"
 	"net/http"
+	"strconv"
 	"time"
+
+	"github.com/prometheus/client_golang/prometheus"
+	"github.com/prometheus/client_golang/prometheus/promhttp"
 )
 
 type Data struct {
@@ -16,18 +20,44 @@ type Data struct {
 	CreatedAt   time.Time `json:"createdAt"`
 }
 
-var allData []Data
+type metrics struct {
+	temperature prometheus.Gauge
+	humidity    prometheus.Gauge
+	feelsLike   prometheus.Gauge
+}
+
+func NewMetrics(reg prometheus.Registerer) *metrics {
+	m := &metrics{
+		temperature: prometheus.NewGauge(prometheus.GaugeOpts{
+			Name: "dht22_temperature_celsius",
+			Help: "Temperature from DHT22 sensor in Celsius.",
+		}),
+		humidity: prometheus.NewGauge(prometheus.GaugeOpts{
+			Name: "dht22_humidity_percent",
+			Help: "Humidity from DHT22 sensor in percentage.",
+		}),
+		feelsLike: prometheus.NewGauge(prometheus.GaugeOpts{
+			Name: "dht22_feelsLike_percent",
+			Help: "Feels Like from DHT22 sensor in percentage.",
+		}),
+	}
+	reg.MustRegister(m.temperature)
+	reg.MustRegister(m.humidity)
+	reg.MustRegister(m.feelsLike)
+	return m
+}
 
 func main() {
 
-	http.Handle("/metrics", http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		w.Header().Set("Content-Type", "application/json")
-		if err := json.NewEncoder(w).Encode(allData); err != nil {
-			http.Error(w, "Error encoding JSON", http.StatusInternalServerError)
-			log.Printf("Error encoding JSON: %v", err)
-			return
-		}
-	}))
+	// Create a non-global registry.
+	reg := prometheus.NewRegistry()
+
+	// Create new metrics and register them using the custom registry.
+	m := NewMetrics(reg)
+
+	// HTTP Handler
+
+	http.Handle("/metrics", promhttp.HandlerFor(reg, promhttp.HandlerOpts{Registry: reg}))
 
 	http.HandleFunc("/", func(w http.ResponseWriter, r *http.Request) {
 
@@ -46,9 +76,21 @@ func main() {
 
 		data.CreatedAt = time.Now()
 
+		valueFormatted, err := strconv.ParseFloat(data.Value, 64)
+		if err != nil {
+			log.Fatal(err)
+		}
+
+		if data.Measurement == "temperature" {
+			m.temperature.Set(valueFormatted)
+		} else if data.Measurement == "humidity" {
+			m.humidity.Set(valueFormatted)
+		} else if data.Measurement == "realFeel" {
+			m.feelsLike.Set(valueFormatted)
+		}
+
 		// Log the received data
 		log.Printf("Received data: %+v\n", data)
-		allData = append(allData, data)
 
 		// Réponse au client
 		w.WriteHeader(http.StatusOK)
