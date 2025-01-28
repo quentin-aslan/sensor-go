@@ -37,8 +37,8 @@ func NewMetrics(reg prometheus.Registerer) *metrics {
 			Help: "Humidity from DHT22 sensor in percentage.",
 		}),
 		feelsLike: prometheus.NewGauge(prometheus.GaugeOpts{
-			Name: "dht22_feelsLike_percent",
-			Help: "Feels Like from DHT22 sensor in percentage.",
+			Name: "dht22_feelsLike_celsius",
+			Help: "Feels Like from DHT22 sensor in Celsius.",
 		}),
 	}
 	reg.MustRegister(m.temperature)
