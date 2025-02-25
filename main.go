@@ -21,9 +21,10 @@ type Data struct {
 }
 
 type metrics struct {
-	temperature prometheus.Gauge
-	humidity    prometheus.Gauge
-	feelsLike   prometheus.Gauge
+	temperature      prometheus.Gauge
+	humidity         prometheus.Gauge
+	feelsLike        prometheus.Gauge
+	ColocDoorCounter prometheus.Counter
 }
 
 func NewMetrics(reg prometheus.Registerer) *metrics {
@@ -40,10 +41,15 @@ func NewMetrics(reg prometheus.Registerer) *metrics {
 			Name: "dht22_feelsLike_celsius",
 			Help: "Feels Like from DHT22 sensor in Celsius.",
 		}),
+		ColocDoorCounter: prometheus.NewCounter(prometheus.CounterOpts{
+			Name: "coloc_door_counter",
+			Help: "Number of times the door has been opened",
+		}),
 	}
 	reg.MustRegister(m.temperature)
 	reg.MustRegister(m.humidity)
 	reg.MustRegister(m.feelsLike)
+	reg.MustRegister(m.ColocDoorCounter)
 	return m
 }
 
@@ -101,6 +107,25 @@ func main() {
 			return
 		}
 		fmt.Println(w, "Data received successfully")
+	})
+
+	http.HandleFunc("/coloc-door", func(w http.ResponseWriter, r *http.Request) {
+		// send a http request
+		_, err := http.Get("http://10.0.0.2:3026")
+		if err != nil {
+			log.Fatal(err)
+			return
+		}
+
+		w.WriteHeader(http.StatusOK)
+		w.Header().Set("Content-Type", "text/plain")
+		_, res := w.Write([]byte("Data received successfully"))
+		if res != nil {
+			log.Printf("Error writing response: %v", res)
+			return
+		}
+
+		m.ColocDoorCounter.Inc()
 	})
 
 	// Lancer le serveur HTTP
