@@ -27,6 +27,8 @@ type metrics struct {
 	ColocDoorCounter prometheus.Counter
 }
 
+const COLOC_DOOR_BASE_URL = "http://10.0.0.2:3026"
+
 func NewMetrics(reg prometheus.Registerer) *metrics {
 	m := &metrics{
 		temperature: prometheus.NewGauge(prometheus.GaugeOpts{
@@ -111,7 +113,7 @@ func main() {
 
 	http.HandleFunc("/coloc-door", func(w http.ResponseWriter, r *http.Request) {
 		// send a http request
-		_, err := http.Get("http://10.0.0.2:3026")
+		_, err := http.Get(COLOC_DOOR_BASE_URL + "/open")
 		if err != nil {
 			log.Fatal(err)
 			return
