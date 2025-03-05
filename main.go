@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"log"
 	"net/http"
+	"os"
 	"strconv"
 	"time"
 
@@ -21,13 +22,12 @@ type Data struct {
 }
 
 type metrics struct {
-	temperature      prometheus.Gauge
-	humidity         prometheus.Gauge
-	feelsLike        prometheus.Gauge
-	ColocDoorCounter prometheus.Counter
+	temperature        prometheus.Gauge
+	humidity           prometheus.Gauge
+	feelsLike          prometheus.Gauge
+	colocStairsCounter prometheus.Counter
+	colocGarageCounter prometheus.Counter
 }
-
-const COLOC_DOOR_BASE_URL = "http://10.0.0.2:3026"
 
 func NewMetrics(reg prometheus.Registerer) *metrics {
 	m := &metrics{
@@ -43,15 +43,20 @@ func NewMetrics(reg prometheus.Registerer) *metrics {
 			Name: "dht22_feelsLike_celsius",
 			Help: "Feels Like from DHT22 sensor in Celsius.",
 		}),
-		ColocDoorCounter: prometheus.NewCounter(prometheus.CounterOpts{
-			Name: "coloc_door_counter",
-			Help: "Number of times the door has been opened",
+		colocStairsCounter: prometheus.NewCounter(prometheus.CounterOpts{
+			Name: "coloc_stairs_counter",
+			Help: "Number of times the stairs door has been opened",
+		}),
+		colocGarageCounter: prometheus.NewCounter(prometheus.CounterOpts{
+			Name: "coloc_garage_counter",
+			Help: "Number of times the garage door has been opened",
 		}),
 	}
 	reg.MustRegister(m.temperature)
 	reg.MustRegister(m.humidity)
 	reg.MustRegister(m.feelsLike)
-	reg.MustRegister(m.ColocDoorCounter)
+	reg.MustRegister(m.colocStairsCounter)
+	reg.MustRegister(m.colocGarageCounter)
 	return m
 }
 
@@ -62,6 +67,10 @@ func main() {
 
 	// Create new metrics and register them using the custom registry.
 	m := NewMetrics(reg)
+
+	// ENV VAR
+
+	ColocBaseUrl := os.Getenv("COLOC_BASE_URL")
 
 	// HTTP Handler
 
@@ -113,21 +122,44 @@ func main() {
 
 	http.HandleFunc("/coloc-door", func(w http.ResponseWriter, r *http.Request) {
 		// send a http request
-		_, err := http.Get(COLOC_DOOR_BASE_URL + "/open")
+		_, err := http.Get(ColocBaseUrl + "/open-stairs")
 		if err != nil {
 			log.Fatal(err)
 			return
 		}
 
+		log.Println("Stairs open successfully")
+
 		w.WriteHeader(http.StatusOK)
 		w.Header().Set("Content-Type", "text/plain")
-		_, res := w.Write([]byte("Data received successfully"))
+		_, res := w.Write([]byte("Stairs open successfully"))
 		if res != nil {
 			log.Printf("Error writing response: %v", res)
 			return
 		}
 
-		m.ColocDoorCounter.Inc()
+		m.colocStairsCounter.Inc()
+	})
+
+	http.HandleFunc("/coloc-door-garage", func(w http.ResponseWriter, r *http.Request) {
+		// send a http request
+		_, err := http.Get(ColocBaseUrl + "/open-garage")
+		if err != nil {
+			log.Fatal(err)
+			return
+		}
+
+		log.Println("Garage open successfully")
+
+		w.WriteHeader(http.StatusOK)
+		w.Header().Set("Content-Type", "text/plain")
+		_, res := w.Write([]byte("Garage open successfully"))
+		if res != nil {
+			log.Printf("Error writing response: %v", res)
+			return
+		}
+
+		m.colocGarageCounter.Inc()
 	})
 
 	// Lancer le serveur HTTP
