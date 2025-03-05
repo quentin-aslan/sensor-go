@@ -22,11 +22,12 @@ type Data struct {
 }
 
 type metrics struct {
-	temperature        prometheus.Gauge
-	humidity           prometheus.Gauge
-	feelsLike          prometheus.Gauge
-	colocStairsCounter prometheus.Counter
-	colocGarageCounter prometheus.Counter
+	temperature            prometheus.Gauge
+	humidity               prometheus.Gauge
+	feelsLike              prometheus.Gauge
+	colocStairsCounter     prometheus.Counter
+	colocGarageCounter     prometheus.Counter
+	colocEspIntercomStatus prometheus.Gauge
 }
 
 func NewMetrics(reg prometheus.Registerer) *metrics {
@@ -51,12 +52,17 @@ func NewMetrics(reg prometheus.Registerer) *metrics {
 			Name: "coloc_garage_counter",
 			Help: "Number of times the garage door has been opened",
 		}),
+		colocEspIntercomStatus: prometheus.NewGauge(prometheus.GaugeOpts{
+			Name: "coloc_esp_intercom_status",
+			Help: "Status of the ESP intercom",
+		}),
 	}
 	reg.MustRegister(m.temperature)
 	reg.MustRegister(m.humidity)
 	reg.MustRegister(m.feelsLike)
 	reg.MustRegister(m.colocStairsCounter)
 	reg.MustRegister(m.colocGarageCounter)
+	reg.MustRegister(m.colocEspIntercomStatus)
 	return m
 }
 
@@ -71,6 +77,16 @@ func main() {
 	// ENV VAR
 
 	ColocBaseUrl := os.Getenv("COLOC_BASE_URL")
+
+	// Check if the microcontroller is still running every 10 minutes
+	go func() {
+		ticker := time.NewTicker(30 * time.Minute)
+		defer ticker.Stop()
+
+		for range ticker.C {
+			checkMicroControllerStatus(m, ColocBaseUrl)
+		}
+	}()
 
 	// HTTP Handler
 
@@ -175,5 +191,26 @@ func main() {
 	log.Printf("Server started on port %s\n", port)
 	if err := server.ListenAndServe(); err != nil {
 		log.Fatalf("Error starting server: %v", err)
+	}
+
+}
+
+// Call the microcontroller to check if it is still running
+func checkMicroControllerStatus(m *metrics, url string) {
+	res, err := http.Get(url + "/metrics")
+	if err != nil {
+		m.colocEspIntercomStatus.Set(0)
+		log.Printf("Microcontroller is not running: %s", url)
+		return
+	}
+
+	if res.StatusCode == http.StatusOK {
+		log.Printf("Microcontroller %s is running", url)
+		m.colocEspIntercomStatus.Set(1)
+		return
+	} else {
+		m.colocEspIntercomStatus.Set(0)
+		log.Printf("Microcontroller %s is not running", url)
+		return
 	}
 }
